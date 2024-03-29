@@ -19,7 +19,7 @@ library(VGAM)
 
 ## Asymptotic Power Study of 6 test statistics under semiparametric regression ##
 
-## Missing Completely at Random (MAR) & NW method of estimation of m(X) ##
+## Missing at Random (MAR) & NW method of estimation of m(X) ##
 
 ## Ex - 3 : X~N(0,1) and e|X=x =D= {(W_x-r_x)/(10*sqrt(2*r_x))} with W_x ~ chi_square_{r_x}, r_x = (1/3x) ##
 
