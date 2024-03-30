@@ -15,7 +15,7 @@ library(pracma)
 
 ## Chapter 5 ##
 ## Finite sample simulation powers of test statistics under semiparametric regression ##
-## Missing at Random (MAR) & NW method of estimation of m(X) ##
+## Missing Completely at Random (MCAR) & ILLS method of estimation of m(X) ##
 ## Ex - 1 : X~U(0,1) and e|X=x~N(0,(1+ax)/100), a in R ##
 ## third order difference of Y ##
 
@@ -47,47 +47,11 @@ y.fix = y ## fixed original n observations on Y ##
 
 h = 0.9 * sd(x) * (n^(-1/5))  ## bandwidth for estimation of regression function ##
 
-## Now, n.hat number of observations on Y are to be made missing through MAR technique ##
+## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
 
-m.hat <- function(x, y, gridpoint)  ## Definition of NW estimator based on Epanechnikov kernel ##
-{
-  ker = function(u) 0.75*(1-u^2) ## kernel = Epanechnikov ##
-  n = length(y)
-  mh = vector(,length(gridpoint))
-  for(j in 1:length(gridpoint))
-  {
-    suma = sumb = vector(,n)
-    for(i in 1:n)
-    {
-      suma[i] = ker((gridpoint[j] - x[i])/h) * y[i]
-      sumb[i] = ker((gridpoint[j] - x[i])/h)
-    }
-    mh[j] = sum(suma)/sum(sumb)
-  }
-  return(list(gridpoint = gridpoint, mh = mh))
-}
+count.1 = sample(1:n,n.hat,replace = F)  ## randomly picking n.hat numbers from {1,...,n}
 
-m.hat.x = function(x) m.hat(x,y,x)$mh 
-
-p.hat = function(x) exp(m.hat.x(x))*(1+exp(m.hat.x(x)))^-1 ## probabilities of missingness of X values as logit function ##
-
-round(p.hat(x),3) -> phat
-
-prob = sample(phat,n.hat,replace = F)  ## generation of n.hat number of probabilities ##
-
-count.1 = c() ## missing positions corresponding to the generated probabilities ##
-for(i in 1:n.hat)
-{
-  for(j in 1:n)
-  {
-    if(prob[i]==phat[j])
-    {
-      count.1[i] = j
-    }
-  }
-}
-## count.1 values need to be distinct ##
-y.miss = c()  ## the Y-values at the 'count.1' digited places are defined as NA's ##
+y.miss = c()  ## the Y-values at the count.1 digited places are defined as NA's ##
 for(i in 1:n)
 {
   if(i %in% count.1)
@@ -153,13 +117,45 @@ beta.hat.u
 
 y.dash = y.dash-z.dash*beta.hat.u ## transformed non-missing response ##
 
-## Now, to estimate the unknown regression function using NW method at x.dash in first step as follows. ##
+## Now, to estimate the unknown regression function using ILLS method at x.dash in first step as follows. ##
 
-ms.hat<- c()  ## estimated regression curve m(X) based on X and available Y-observations at primary step ##
+ep.kernel = function(u) 0.75*(1-u^2) ## Epanechnikov kernel ##
 
-for(i in 1:length(y.dash))
+M1<- function(u)  
 {
-  ms.hat[i]<- NW.WtKernel(x.dash, y.dash, x.dash[i],Kernel = "Ep", Bndwdth = h)
+  vec1<- c()
+  for(i in 1:length(x.dash))
+  {
+    vec1[i]<- (u-x.dash[i])*ep.kernel((u-x.dash[i])/h)
+  }
+  return(sum(vec1))
+}
+
+M2<- function(v)  
+{
+  vec2<- c()
+  for(i in 1:length(x.dash))
+  {
+    vec2[i]<- (v-x.dash[i])^2*ep.kernel((v-x.dash[i])/h)
+  }
+  return(sum(vec2))
+}
+
+lls1<- function(c)
+{
+  g1 = c()
+  for(i in 1:length(x.dash))  { g1[i]<- (M2(x.dash[i])-(x.dash[i]-c)*M1(x.dash[i]))*ep.kernel((x.dash[i]-c)/h)*y.dash[i]  }
+  g2 = c()
+  for(i in 1:length(x.dash))  { g2[i]<- (M2(x.dash[i])-(x.dash[i]-c)*M1(x.dash[i]))*ep.kernel((x.dash[i]-c)/h)  }
+  return(sum(g1)/sum(g2))
+}
+
+## least square estimation of intercept based on non-missing (X,Y)-observations only ##
+
+t0.hat<- c()  ## t0.hat is also the first step estimator of the regression function based on non-missing observations of (X,Y) ##
+for(i in 1:length(x.dash))
+{
+  t0.hat[i]<- lls1(x.dash[i])
 }
 
 x.miss = x[count.1]  ## X-observations corresponding to missing Y-values ##
@@ -167,7 +163,7 @@ x.miss = x[count.1]  ## X-observations corresponding to missing Y-values ##
 m.hat.miss = c()  ## estimation of regression function at the missing observations of Y ##
 for(i in 1:length(x.miss))
 {
-  m.hat.miss[i] = NW.WtKernel(x.dash, y.dash, x.miss[i], Kernel = "Ep", Bndwdth = h)
+  m.hat.miss[i] = lls1(x.miss[i])
 }
 
 m.hat.miss.arranged<- c()  
@@ -225,20 +221,55 @@ estimated.beta.values = c(beta,beta.hat.u,beta.hat)
 
 estimated.beta.values
 
-ml.hat<- c()  ## estimated regression curve m(X) based on full set of observations on (X,Y) at second step ##
+## Now, based on n paired observations (X, Y.complete), the regression function of the complete model needs to be estimated. ##
 
-for(i in 1:length(y.complete))
+M1.1<- function(u)  
 {
-  ml.hat[i]<- NW.WtKernel(x,y.complete,x[i], Kernel = "Ep", Bndwdth = h)
+  v1<- c()
+  for(i in 1:n)
+  {
+    v1[i]<- (u-x[i])*ep.kernel((u-x[i])/h)
+  }
+  return(sum(v1))
 }
 
-e.hat = y.complete - ml.hat ## estimation of errors ##
+M2.1<- function(v)  
+{
+  v2<- c()
+  for(i in 1:n)
+  {
+    v2[i]<- (v-x[i])*ep.kernel((v-x[i])/h)
+  }
+  return(sum(v2))
+}
+
+
+lls2<- function(c)
+{
+  r1 = c()
+  for(i in 1:n)  { r1[i]<- (M2.1(x[i])-(x[i]-c)*M1.1(x[i]))*ep.kernel((x[i]-c)/h)*y.complete[i]  }
+  r2 = c()
+  for(i in 1:n)  { r2[i]<- (M2.1(x[i])-(x[i]-c)*M1.1(x[i]))*ep.kernel((x[i]-c)/h)  }
+  return(sum(r1)/sum(r2))
+}
+
+## least square estimation of intercept based on full set of (X,Y)-observations ##
+
+s0.hat<- c()  ## t0.hat is also the first step estimator of the regression function based on non-missing observations of (X,Y) ##
+for(i in 1:n)
+{
+  s0.hat[i]<- lls2(x[i])
+}
+
+## s0.hat is the second step cum final estimator of the regression function of the model ##
+
+e.hat = y.complete - s0.hat ## estimation of errors ##
 
 e.cen = e.hat - mean(e.hat) ## estimation of centered errors ##
 
 e.cen.boot<- sample(e.cen, n, replace = T) ## resamples of centered errors from the empirical distribution function of centered error ##
 
-y.boot<- ml.hat+e.cen.boot ## resampled responses ##
+y.boot<- s0.hat+e.cen.boot ## resampled responses ##
 
 DATA<- cbind.data.frame(x,e.cen.boot,y.boot) ## dataset on X-observations and resampled responses ##
 

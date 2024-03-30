@@ -15,8 +15,8 @@ library(pracma)
 
 ## Chapter 5 ##
 ## Finite sample simulation powers of test statistics under semiparametric regression ##
-## Missing at Random (MAR) & NW method of estimation of m(X) ##
-## Ex - 1 : X~U(0,1) and e|X=x~N(0,(1+ax)/100), a in R ##
+## Ex - 2 : X~U(0,1) and e|X=x =D= {(W_x-p_x)/(10*sqrt(2*p_x))} with W_x ~ chi_square_{p_x}, p_x = (1/bx), b>0 ##
+## Missing Completely at Random (MCAR) & NW method of estimation of m(X) ##
 ## third order difference of Y ##
 
 ## Under null hypothesis H0 ##
@@ -47,47 +47,11 @@ y.fix = y ## fixed original n observations on Y ##
 
 h = 0.9 * sd(x) * (n^(-1/5))  ## bandwidth for estimation of regression function ##
 
-## Now, n.hat number of observations on Y are to be made missing through MAR technique ##
+## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
 
-m.hat <- function(x, y, gridpoint)  ## Definition of NW estimator based on Epanechnikov kernel ##
-{
-  ker = function(u) 0.75*(1-u^2) ## kernel = Epanechnikov ##
-  n = length(y)
-  mh = vector(,length(gridpoint))
-  for(j in 1:length(gridpoint))
-  {
-    suma = sumb = vector(,n)
-    for(i in 1:n)
-    {
-      suma[i] = ker((gridpoint[j] - x[i])/h) * y[i]
-      sumb[i] = ker((gridpoint[j] - x[i])/h)
-    }
-    mh[j] = sum(suma)/sum(sumb)
-  }
-  return(list(gridpoint = gridpoint, mh = mh))
-}
+count.1 = sample(1:n,n.hat,replace = F)  ## randomly picking n.hat numbers from {1,...,n}
 
-m.hat.x = function(x) m.hat(x,y,x)$mh 
-
-p.hat = function(x) exp(m.hat.x(x))*(1+exp(m.hat.x(x)))^-1 ## probabilities of missingness of X values as logit function ##
-
-round(p.hat(x),3) -> phat
-
-prob = sample(phat,n.hat,replace = F)  ## generation of n.hat number of probabilities ##
-
-count.1 = c() ## missing positions corresponding to the generated probabilities ##
-for(i in 1:n.hat)
-{
-  for(j in 1:n)
-  {
-    if(prob[i]==phat[j])
-    {
-      count.1[i] = j
-    }
-  }
-}
-## count.1 values need to be distinct ##
-y.miss = c()  ## the Y-values at the 'count.1' digited places are defined as NA's ##
+y.miss = c()  ## the Y-values at the count.1 digited places are defined as NA's ##
 for(i in 1:n)
 {
   if(i %in% count.1)
@@ -422,44 +386,62 @@ Tn3.critical
 
 ###############################################################################
 
-Power_of_test_statistics = function(a)
+e.x.b = function(b)
+{ 
+  if(b==0) {return(e.cen.boot)}
+  else {
+    df = ceiling(1/(b*x.sort))
+    ch = rchisq(n, df, 0)
+    den = 10*sqrt(2*df)
+    l1 = ch-df
+    return(l1/den)
+  }
+}
+
+Power_of_test_statistics = function(b)
 {
-  y.boot.a<- m.hat+sqrt(1+a*x)*e.cen.boot ## resampled responses ##
-  y.a.sort<- c()  ## induced resampled responses ##
+  y.boot.b = c()
   for(i in 1:n)
   {
-    y.a.sort[i]<- y.boot.a[which(x==x.sort[i])]
+    if(b==0) {y.boot.b[i] = m.hat+e.cen.boot}  ## For b = 0, e|X=x ~ Normal (0,0.1^2) ##
+    else {y.boot.b[i] = m.hat+e.x.b(b)}
   }
-  y3.boot.a<- c()  ## third difference of induced resampled responses ##
+  y.boot.b<- m.hat+sqrt(1+b*x)*e.cen.boot ## resampled responses ##
+  y.b.sort<- c()  ## induced resampled responses ##
+  for(i in 1:n)
+  {
+    y.b.sort[i]<- y.boot.b[which(x==x.sort[i])]
+  }
+  y3.boot.b<- c()  ## third difference of induced resampled responses ##
   for(i in 1:n)
   {
     if(i==1)
     {
-      y3.boot.a[i] = -y.a.sort[2]
+      y3.boot.b[i] = -y.b.sort[2]
     }
     else if(i==2)
     {
-      y3.boot.a[i] = -2*y.a.sort[1]+3*y.a.sort[2]-y.a.sort[3]
+      y3.boot.b[i] = -2*y.b.sort[1]+3*y.b.sort[2]-y.b.sort[3]
     }
     else if(i==n)
     {
-      y3.boot.a[i] = y.a.sort[n-2]-3*y.a.sort[n-1]+2*y.a.sort[n]
+      y3.boot.b[i] = y.b.sort[n-2]-3*y.b.sort[n-1]+2*y.b.sort[n]
     }
     else
     {
-      y3.boot.a[i] = y.a.sort[i-2]-3*y.a.sort[i-1]+3*y.a.sort[i]-y.a.sort[i+1]
+      y3.boot.b[i] = y.b.sort[i-2]-3*y.b.sort[i-1]+3*y.b.sort[i]-y.b.sort[i+1]
     }
   }
   ## Power of Kolmogorov Smirnov test statistic ##
-  v.a = ecdf(y3.boot.a)(y3.boot.a) ## empirical CDF values of induced Y ##
-  v.a.vector<- vector("list", B)
+  v.b = ecdf(y3.boot.b)(y3.boot.b) ## empirical CDF values of induced Y ##
+  v.b.vector<- vector("list", B)
   for(j in 1:B) {
-    v.a.vector[[j]]<- sample(v.a,n,T)
+    v.b.vector[[j]]<- sample(v.b,n,T)
   }
   Z1.uv<- vector("list",B)  ## generation of Wiener processes of size n in B(=1000) resamples ##
   for(j in 1:B)
   {
-    for(i in 1:n) {Z1.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.a,u.vector[[j]][i],v.a.vector[[j]][i])-u.vector[[j]][i]*v.a.vector[[j]][i]) }
+    for(i in 1:n) {Z1.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.b,u.vector[[j]][i],v.b.vector[[j]][i])-u.vector[[j]][i]*v.b.vector[[j]][i]) }
   }
   KS.alt = c()
   for(j in 1:B)
@@ -471,7 +453,7 @@ Power_of_test_statistics = function(a)
   Z1.uv<- vector("list",B)  ## generation of Wiener processes of size n in B(=1000) resamples ##
   for(j in 1:B)
   {
-    for(i in 1:n) {Z1.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.a,u.vector[[j]][i],v.a.vector[[j]][i])-u.vector[[j]][i]*v.a.vector[[j]][i]) }
+    for(i in 1:n) {Z1.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.b,u.vector[[j]][i],v.b.vector[[j]][i])-u.vector[[j]][i]*v.b.vector[[j]][i]) }
   }
   CM.alt = c()
   for(j in 1:B)
@@ -484,13 +466,13 @@ Power_of_test_statistics = function(a)
   for(j in 1:B)
   {
     for(i in 1:n) {
-      if(sqrt(u.vector[[j]][i]*v.a.vector[[j]][i]*(1-u.vector[[j]][i])*(1-v.a.vector[[j]][i]))==0)
+      if(sqrt(u.vector[[j]][i]*v.b.vector[[j]][i]*(1-u.vector[[j]][i])*(1-v.b.vector[[j]][i]))==0)
       {
-        Z1.dash.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.a,u.vector[[j]][i],v.a.vector[[j]][i])-u.vector[[j]][i]*v.a.vector[[j]][i])
+        Z1.dash.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.b,u.vector[[j]][i],v.b.vector[[j]][i])-u.vector[[j]][i]*v.b.vector[[j]][i])
       }
       else
       {
-        Z1.dash.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.a,u.vector[[j]][i],v.a.vector[[j]][i])-u.vector[[j]][i]*v.a.vector[[j]][i])/sqrt(u.vector[[j]][i]*v.a.vector[[j]][i]*(1-u.vector[[j]][i])*(1-v.a.vector[[j]][i]))
+        Z1.dash.uv[[j]][i]<- sqrt(n)*(mecdf(u,v.b,u.vector[[j]][i],v.b.vector[[j]][i])-u.vector[[j]][i]*v.b.vector[[j]][i])/sqrt(u.vector[[j]][i]*v.b.vector[[j]][i]*(1-u.vector[[j]][i])*(1-v.b.vector[[j]][i]))
       }
     }
   }
@@ -501,30 +483,30 @@ Power_of_test_statistics = function(a)
   }
   Power.AD = mean(AD.alt>AD.critical)
   #############################################################
-  y3.boot.B.a = vector("list", B)
+  y3.boot.B.b = vector("list", B)
   for(j in 1:B)
   {
-    y3.boot.B.a[[j]] = sample(y3.boot.a,n,replace = T)
+    y3.boot.B.b[[j]] = sample(y3.boot.b,n,replace = T)
   }
   ## Power of Tn1 ##
   Tn1.alt<- c()  ## Tn1 values under H0 ##
   for(j in 1:B)
   {
-    Tn1.alt[j] = Tn1(x.sort.B[[j]],y3.boot.B.a[[j]])
+    Tn1.alt[j] = Tn1(x.sort.B[[j]],y3.boot.B.b[[j]])
   }
   Power.Tn1 = mean(Tn1.alt>Tn1.critical)
   ## Power of Tn2 ##
   Tn2.alt<- c()  ## Tn1 values under H0 ##
   for(j in 1:B)
   {
-    Tn2.alt[j] = Tn2(x.sort.B[[j]],y3.boot.B.a[[j]])
+    Tn2.alt[j] = Tn2(x.sort.B[[j]],y3.boot.B.b[[j]])
   }
   Power.Tn2 = mean(Tn2.alt>Tn2.critical)
   ## Power of Tn3 ##
   Tn3.alt<- c()  ## Tn1 values under H0 ##
   for(j in 1:B)
   {
-    Tn3.alt[j] = Tn3(x.sort.B[[j]],y3.boot.B.a[[j]])
+    Tn3.alt[j] = Tn3(x.sort.B[[j]],y3.boot.B.b[[j]])
   }
   Power.Tn3 = mean(Tn3.alt>Tn3.critical)
   return(cbind(Power.KS,Power.CM,Power.AD,Power.Tn1,Power.Tn2,Power.Tn3))
@@ -535,7 +517,7 @@ a = scan()  ## value of a is fixed ##
 
 Power_of_test_statistics(a)  ## powers of test statistics for a = 0,...,10 ##
 
-## a = seq(0,10,1)
+## b = seq(0,10,1)
 ## KS = vector Power.KS for a = 0,1,...,10
 ## CM = vector Power.CM for a = 0,1,...,10
 ## AD = vector Power.AD for a = 0,1,...,10
@@ -546,17 +528,17 @@ Power_of_test_statistics(a)  ## powers of test statistics for a = 0,...,10 ##
 ## graphical representation of the power curves of T1, T2 and T3 ##
 
 
-#plot(a, KS, xlim=c(0,10), ylim=c(0,1), type="l", pch=10, col="red", xlab=expression(a), ylab=expression("Finite sample powers"))
+#plot(b, KS, xlim=c(0,10), ylim=c(0,1), type="l", pch=10, col="red", xlab=expression(b), ylab=expression("Finite sample powers"))
 # Add a line
-#lines(a, CM, xlim=c(0,10), ylim=c(0,1), pch=10, col="purple", type="l")
+#lines(b, CM, xlim=c(0,10), ylim=c(0,1), pch=10, col="purple", type="l")
 # Add a line
-#lines(a, AD, xlim=c(0,10), ylim=c(0,1), pch=10, col="violet", type="l")
+#lines(b, AD, xlim=c(0,10), ylim=c(0,1), pch=10, col="violet", type="l")
 # Add a line
-#lines(a, T1, xlim=c(0,10), ylim=c(0,1), pch=10, col="black", type="l")
+#lines(b, T1, xlim=c(0,10), ylim=c(0,1), pch=10, col="black", type="l")
 # Add a line
-#lines(a, T2, xlim=c(0,10), ylim=c(0,1), pch=10, col="green", type="l")
+#lines(b, T2, xlim=c(0,10), ylim=c(0,1), pch=10, col="green", type="l")
 # Add a line
-#lines(a, T3, xlim=c(0,10), ylim=c(0,1), pch=10, col="blue", type="l")
+#lines(b, T3, xlim=c(0,10), ylim=c(0,1), pch=10, col="blue", type="l")
 # Add a legend
 #legend("bottomright",
 #c(expression(paste('T'['n,KS']),paste('T'['n,CM']),paste('T'['n,AD']),paste('T'['n1']),paste('T'['n2']),paste('T'['n3']))),

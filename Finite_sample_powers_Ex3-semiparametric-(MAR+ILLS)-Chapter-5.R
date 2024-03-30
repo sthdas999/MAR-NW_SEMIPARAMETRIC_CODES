@@ -16,7 +16,7 @@ library(pracma)
 ## Chapter 5 ##
 ## Finite sample simulation powers of test statistics under semiparametric regression ##
 ## Ex - 3 : X~Uniform(0,1) and e|X=x~Cauchy(0, 1+cx), c>-1 ##
-## Missing Completely at Random (MAR) & NW method of estimation of m(X) ##
+## Missing at Random (MAR) & NW method of estimation of m(X) ##
 ## third order difference of Y ##
 
 ## Under null hypothesis H0 ##

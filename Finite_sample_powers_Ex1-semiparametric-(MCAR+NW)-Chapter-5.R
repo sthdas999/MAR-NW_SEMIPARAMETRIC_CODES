@@ -15,7 +15,7 @@ library(pracma)
 
 ## Chapter 5 ##
 ## Finite sample simulation powers of test statistics under semiparametric regression ##
-## Missing at Random (MAR) & NW method of estimation of m(X) ##
+## Missing Completely at Random (MCAR) & NW method of estimation of m(X) ##
 ## Ex - 1 : X~U(0,1) and e|X=x~N(0,(1+ax)/100), a in R ##
 ## third order difference of Y ##
 
@@ -47,47 +47,11 @@ y.fix = y ## fixed original n observations on Y ##
 
 h = 0.9 * sd(x) * (n^(-1/5))  ## bandwidth for estimation of regression function ##
 
-## Now, n.hat number of observations on Y are to be made missing through MAR technique ##
+## Now, n.hat number of observations on Y are to be made missing through MCAR technique ##
 
-m.hat <- function(x, y, gridpoint)  ## Definition of NW estimator based on Epanechnikov kernel ##
-{
-  ker = function(u) 0.75*(1-u^2) ## kernel = Epanechnikov ##
-  n = length(y)
-  mh = vector(,length(gridpoint))
-  for(j in 1:length(gridpoint))
-  {
-    suma = sumb = vector(,n)
-    for(i in 1:n)
-    {
-      suma[i] = ker((gridpoint[j] - x[i])/h) * y[i]
-      sumb[i] = ker((gridpoint[j] - x[i])/h)
-    }
-    mh[j] = sum(suma)/sum(sumb)
-  }
-  return(list(gridpoint = gridpoint, mh = mh))
-}
+count.1 = sample(1:n,n.hat,replace = F)  ## randomly picking n.hat numbers from {1,...,n}
 
-m.hat.x = function(x) m.hat(x,y,x)$mh 
-
-p.hat = function(x) exp(m.hat.x(x))*(1+exp(m.hat.x(x)))^-1 ## probabilities of missingness of X values as logit function ##
-
-round(p.hat(x),3) -> phat
-
-prob = sample(phat,n.hat,replace = F)  ## generation of n.hat number of probabilities ##
-
-count.1 = c() ## missing positions corresponding to the generated probabilities ##
-for(i in 1:n.hat)
-{
-  for(j in 1:n)
-  {
-    if(prob[i]==phat[j])
-    {
-      count.1[i] = j
-    }
-  }
-}
-## count.1 values need to be distinct ##
-y.miss = c()  ## the Y-values at the 'count.1' digited places are defined as NA's ##
+y.miss = c()  ## the Y-values at the count.1 digited places are defined as NA's ##
 for(i in 1:n)
 {
   if(i %in% count.1)
